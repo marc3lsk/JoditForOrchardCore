@@ -1,0 +1,102 @@
+@model HtmlBodyPartViewModel
+@using OrchardCore.Html.ViewModels;
+@using OrchardCore.Html.Settings;
+@using OrchardCore.ContentLocalization
+@using OrchardCore.ContentManagement.Metadata.Models
+@using OrchardCore.Localization
+@using System.Globalization
+
+@{
+    var settings = Model.TypePartDefinition.GetSettings<HtmlBodyPartSettings>();
+    var culture = await Orchard.GetContentCultureAsync(Model.ContentItem) ?? CultureInfo.CurrentUICulture;
+}
+
+@if (!Context.Items.ContainsKey("Media_Modal__HtmlBodyPart"))
+{
+    Context.Items["Media_Modal__HtmlBodyPart"] = new object();
+    @await DisplayAsync(await New.Media_Modal__HtmlBodyPart())
+}
+
+<script asp-name="jodit" depends-on="admin" at="Foot"></script>
+<style asp-name="jodit"></style>
+
+<style>
+    .jodit_fullsize_box .ta-navbar-top {
+        display: none;
+    }
+
+    .jodit_fullsize_box .jodit_toolbar_container {
+        top: 0px !important;
+    }
+    .jodit_fullsize_box {
+        z-index: 1000 !important;
+    }
+    .jodit_fullsize_box #mediaModalBody.html-body-part {
+        z-index: 999999;
+    }
+
+    .jodit_fullsize_box .modal-backdrop {
+        z-index: 0;
+    }
+</style>
+
+<div class="form-group">
+    <label asp-for="Html">@Model.TypePartDefinition.DisplayName()</label>
+    @if (culture.IsRightToLeft())
+    {
+        <div style="text-align:right">
+            <textarea asp-for="Html" rows="5" class="form-control"></textarea>
+        </div>
+    }
+    else
+    {
+        <textarea asp-for="Html" rows="5" class="form-control"></textarea>
+    }
+    <span class="hint">@T["The body of the content item."]</span>
+</div>
+
+<script at="Foot" depends-on="admin">
+    $(function () {
+
+        var settings = { toolbarStickyOffset : 49 };
+        settings.events = {};
+        settings["language"] = "@culture.TwoLetterISOLanguageName";
+        settings["direction"] = "@culture.GetLanguageDirection()";
+        settings["showCharsCounter"] = true;
+        settings.events.change = function (event) {
+            $(document).trigger("contentpreview:render");
+        }
+
+        settings.events.toggleFullsize = function () {
+            setTimeout(function() {
+                $(".jodit_wysiwyg_mode:not(.jodit_fullsize)").css("height", "");
+                $(".jodit_wysiwyg_mode:not(.jodit_fullsize) .jodit_workplace").css("height", "");
+            }, 10);
+        }
+
+        var editor = new Jodit("#@Html.IdFor(m => m.Html)", settings);
+
+        $(document).on("click", ".jodit_toolbar_btn-image > a", function(event) {
+            event.preventDefault();
+            event.stopPropagation();
+
+            $("#mediaApp").detach().appendTo('#mediaModalBody .modal-body');
+            $('#mediaApp').show();
+            $('#mediaModalBody').modal('show');
+            mediaApp.selectedMedias = [];
+            $('#mediaBodySelectButton').off("click.jodit").on('click.jodit', function (v) {
+                for (i = 0; i < mediaApp.selectedMedias.length; i++) {
+                    var img = document.createElement("img");
+                    img.src = mediaApp.selectedMedias[i].url;
+                    img.alt = mediaApp.selectedMedias[i].name;
+                    editor.selection.insertNode(img);
+                    editor.setEditorValue();
+                }
+                $(document).trigger('contentpreview:render');
+                $('#mediaModalBody').modal('hide');
+                return true;
+            });
+            return false;
+        });
+    });
+</script>
